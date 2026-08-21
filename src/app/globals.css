@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0E1A33;
+  --color-ink-soft: #33405C;
+  --color-accent: #B5582D;
+  --color-accent-soft: #F3E7DF;
+  --color-paper: #FBFAF8;
+  --color-line: #E6E2DA;
+  --font-display: Georgia, "Times New Roman", serif;
+}
+
+html, body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display { font-family: var(--font-display); }
+
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+.shimmer::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent);
+  transform: translateX(-100%); animation: shimmer 1.6s infinite;
+}
