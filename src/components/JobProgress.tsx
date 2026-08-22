@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Job } from "@/lib/types";
@@ -8,6 +8,11 @@ import { Spinner } from "./ui";
 export default function JobProgress({ jobId, onDone }:
   { jobId: string; onDone?: (job: Job) => void }) {
   const [job, setJob] = useState<Job | null>(null);
+  
+  const onDoneRef = useRef(onDone);
+  useEffect(() => {
+    onDoneRef.current = onDone;
+  }, [onDone]);
 
   useEffect(() => {
     let alive = true;
@@ -16,13 +21,16 @@ export default function JobProgress({ jobId, onDone }:
         const j = await api.job(jobId);
         if (!alive) return;
         setJob(j);
-        if (j.status === "done" || j.status === "error") { onDone?.(j); return; }
+        if (j.status === "done" || j.status === "error") { 
+          onDoneRef.current?.(j); 
+          return; 
+        }
       } catch { /* keep polling */ }
       if (alive) setTimeout(tick, 1200);
     };
     tick();
     return () => { alive = false; };
-  }, [jobId, onDone]);
+  }, [jobId]);
 
   if (!job) return <div className="flex items-center gap-2 text-sm"><Spinner /> starting…</div>;
 
