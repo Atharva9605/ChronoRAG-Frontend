@@ -46,13 +46,13 @@ const PRESETS: Preset[] = [
   {
     label: "Sees fish vs gear",
     question:
-      "Is the old man seeing the fish clearly for the first time while fighting it before or after Manolin helps carry gear on shore?",
+      "Is the old man seeing the fish clearly for the first time while fighting it before or after Manolin helps carry gear on shore at the start of the story?",
     gold: "after",
     verdict: "After",
     facts: [
-      "Manolin helps carry gear on shore during setup (p. 2).",
+      "Manolin helps carry gear on shore during setup at the start of the story (p. 2).",
       "Santiago first sees the fish clearly as a massive shadow during the fight at sea (p. 34).",
-      "Shore help comes first; the clear sighting is later.",
+      "Shore help at the start comes first; the clear sighting is later.",
     ],
   },
   {
