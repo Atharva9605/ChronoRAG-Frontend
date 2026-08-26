@@ -34,10 +34,14 @@ export default function LibraryPage() {
     }
   };
 
-  const onJobDone = (docId: string, kind: "naive" | "kaalkram", job: Job) => {
-    setBusy((b) => ({ ...b, [`${docId}:${kind}`]: false }));
-    if (job.status === "done") refresh();
-  };
+  const onJobDone = useCallback((docId: string, kind: "naive" | "kaalkram", job: Job) => {
+    setBusy((b) => {
+      const key = `${docId}:${kind}`;
+      if (b[key] === false) return b;
+      return { ...b, [key]: false };
+    });
+    if (job.status === "done" || job.status === "error") refresh();
+  }, [refresh]);
 
   const remove = async (id: string) => {
     await api.deleteDoc(id);

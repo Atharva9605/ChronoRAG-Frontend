@@ -17,12 +17,16 @@ export default function JobProgress({ jobId, onDone }:
         if (!alive) return;
         setJob(j);
         if (j.status === "done" || j.status === "error") { onDone?.(j); return; }
-      } catch { /* keep polling */ }
+      } catch (err) {
+        if (!alive) return;
+        setJob({ id: jobId, status: "error", error: "Job not found or server error", progress: 0, detail: {} });
+        return; 
+      }
       if (alive) setTimeout(tick, 1200);
     };
     tick();
     return () => { alive = false; };
-  }, [jobId, onDone]);
+  }, [jobId]);
 
   if (!job) return <div className="flex items-center gap-2 text-sm"><Spinner /> starting…</div>;
 
