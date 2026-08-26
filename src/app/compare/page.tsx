@@ -231,12 +231,12 @@ export default function ComparePage() {
     setLoadingKaalkram(true);
     setLoadingNaive(true);
 
-    api.queryKaalkram(docId, q)
+    api.ask(docId, "kaalkram", q)
       .then(setKaalkram)
       .catch((e) => setErrKaalkram(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoadingKaalkram(false));
 
-    api.queryNaive(docId, q)
+    api.ask(docId, "naive", q)
       .then(setNaive)
       .catch((e) => setErrNaive(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoadingNaive(false));
