@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BookOpen, ChevronDown, Search } from "lucide-react";
 import Shell from "@/components/Shell";
 import AnswerPanel from "@/components/AnswerPanel";
-import { Button, Card, SectionTitle } from "@/components/ui";
+import { Button, Card, SectionTitle, Spinner } from "@/components/ui";
 import { api } from "@/lib/api";
 import type { OrderDecision } from "@/lib/order";
 import type { Doc, PipelineAnswer } from "@/lib/types";
@@ -219,207 +219,206 @@ export default function ComparePage() {
       ? activePreset.gold === "before" || activePreset.gold === "after"
       : /before\s+or\s+after|which comes first/i.test(question);
 
-  async function handleRun(qOverride?: string) {
-    const q = (qOverride ?? question).trim();
-    if (!docId || !q || running) return;
-
+  const selectPreset = (q: string) => {
+    setQuestion(q);
+    setChecked(false);
+    setBookOpen(true);
     setKaalkram(null);
     setNaive(null);
     setErrKaalkram("");
     setErrNaive("");
+  };
+
+  const run = () => {
+    if (!docId || !question.trim()) return;
+    const q = question.trim();
+
     setChecked(false);
+    setBookOpen(true);
+    setKaalkram(null);
+    setNaive(null);
+    setErrKaalkram("");
+    setErrNaive("");
     setLoadingKaalkram(true);
     setLoadingNaive(true);
 
     api.ask(docId, "kaalkram", q)
       .then(setKaalkram)
-      .catch((e) => setErrKaalkram(e instanceof Error ? e.message : String(e)))
+      .catch((e: unknown) => setErrKaalkram(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoadingKaalkram(false));
 
     api.ask(docId, "naive", q)
       .then(setNaive)
-      .catch((e) => setErrNaive(e instanceof Error ? e.message : String(e)))
+      .catch((e: unknown) => setErrNaive(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoadingNaive(false));
-  }
-
-  function pickPreset(p: Preset) {
-    setQuestion(p.question);
-    handleRun(p.question);
-  }
+  };
 
   return (
-    <Shell active="compare">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div>
-          <SectionTitle
-            eyebrow="Side by Side"
-            title="Same book, same question, two architectures"
-            description="Ask a before/after question. Naive RAG retrieves by similarity (shuffled order). Kaalkram retrieves ordered events."
-          />
+    <Shell docId={docId || undefined}>
+      <SectionTitle
+        eyebrow="side by side"
+        title="Same book, same question, two architectures"
+        sub="Ask a before/after question. Naive RAG retrieves by similarity (shuffled order). Kaalkram retrieves ordered events."
+      />
+
+      <Card className="mb-6 p-5">
+        <div className="flex flex-col gap-3 md:flex-row" suppressHydrationWarning>
+          <select
+            value={docId}
+            onChange={(e) => setDocId(e.target.value)}
+            suppressHydrationWarning
+            aria-label="Select book"
+            className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm md:w-64"
+          >
+            <option value="">Select a book…</option>
+            {docs.map((d) => (
+              <option key={d.id} value={d.id} disabled={!(d.naive_ready && d.kaalkram_ready)}>
+                {d.title}{d.naive_ready && d.kaalkram_ready ? "" : "  (not built)"}
+              </option>
+            ))}
+          </select>
+
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-ink-soft)]" />
+            <input
+              value={question}
+              onChange={(e) => {
+                setQuestion(e.target.value);
+                setChecked(false);
+              }}
+              onKeyDown={(e) => e.key === "Enter" && run()}
+              placeholder="Ask something that depends on order…"
+              suppressHydrationWarning
+              aria-label="Question to compare"
+              className="w-full rounded-lg border border-[var(--color-line)] bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-[var(--color-accent)]"
+            />
+          </div>
+
+          <Button onClick={run} disabled={running || !docId}>
+            {running ? (
+              <>
+                <Spinner /> Running…
+              </>
+            ) : (
+              "Run comparison"
+            )}
+          </Button>
         </div>
 
-        {/* Input Bar */}
-        <Card className="p-4 space-y-3">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative sm:w-64">
-              <select
-                aria-label="Select document"
-                value={docId}
-                onChange={(e) => setDocId(e.target.value)}
-                className="w-full h-11 pl-3 pr-8 rounded-lg border border-border bg-background text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary appearance-none cursor-pointer"
+        <div className="mt-3 flex min-h-8 flex-wrap gap-2" suppressHydrationWarning>
+          {mounted &&
+            currentPresets.map((p) => (
+              <button
+                key={p.question}
+                type="button"
+                onClick={() => selectPreset(p.question)}
+                className={chipClass(question === p.question)}
               >
-                {docs.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.title}
-                  </option>
+                {p.label}
+              </button>
+            ))}
+        </div>
+      </Card>
+
+      {(loadingKaalkram || kaalkram || errKaalkram || loadingNaive || naive || errNaive) && (
+        <div className="grid items-start gap-6 lg:grid-cols-2">
+          <PanelSlot
+            title="Kaalkram"
+            subtitle="Extracted events → deduplicated → temporal DAG → ordered retrieval"
+            tone="primary"
+            loading={loadingKaalkram}
+            data={kaalkram}
+            err={errKaalkram}
+            gold={goldForPanels}
+            factMatch={factMatch}
+            showDecision={showDecision}
+            checked={checked}
+          />
+          <PanelSlot
+            title="Naive RAG"
+            subtitle="Fixed chunks → embeddings → top-k similarity → stuffed prompt"
+            tone="muted"
+            loading={loadingNaive}
+            data={naive}
+            err={errNaive}
+            gold={goldForPanels}
+            factMatch={factMatch}
+            showDecision={showDecision}
+            checked={checked}
+          />
+        </div>
+      )}
+
+      {canCheck && !checked && (
+        <div className="mt-6 flex justify-center">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setChecked(true);
+              setBookOpen(true);
+            }}
+          >
+            <BookOpen className="h-4 w-4" />
+            Check against the book
+          </Button>
+        </div>
+      )}
+
+      {checked && activePreset && (
+        <div className="mt-6">
+          <button
+            type="button"
+            onClick={() => setBookOpen((o) => !o)}
+            className="mb-2 flex w-full items-center justify-between rounded-lg border border-[var(--color-line)] bg-white px-4 py-2.5 text-left text-sm text-[var(--color-ink-soft)] hover:bg-[var(--color-paper)]"
+          >
+            <span className="inline-flex items-center gap-2">
+              <BookOpen className="h-4 w-4" />
+              Book answer
+              <span className="text-[var(--color-ink)]">· {activePreset.verdict}</span>
+            </span>
+            <ChevronDown className={`h-4 w-4 transition-transform ${bookOpen ? "rotate-180" : ""}`} />
+          </button>
+
+          {bookOpen && (
+            <Card className="px-5 py-4">
+              <p className="text-sm text-[var(--color-ink)]">
+                Correct decision: <span className="font-medium">{activePreset.verdict}</span>
+              </p>
+              <ul className="mt-3 space-y-1.5">
+                {activePreset.facts.map((f) => (
+                  <li key={f} className="text-sm leading-relaxed text-[var(--color-ink-soft)]">
+                    · {f}
+                  </li>
                 ))}
-              </select>
-              <ChevronDown className="w-4 h-4 absolute right-2.5 top-3.5 pointer-events-none text-muted-foreground" />
-            </div>
-
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                placeholder="e.g. Did Santiago refuse the boy before or after the sharks attacked?"
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !running) handleRun();
-                }}
-                className="w-full h-11 pl-10 pr-4 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-muted-foreground" />
-            </div>
-
-            <Button
-              onClick={() => handleRun()}
-              disabled={running || !docId || !question.trim()}
-              className="h-11 px-6 shrink-0"
-            >
-              {running ? "Running..." : "Run comparison"}
-            </Button>
-          </div>
-
-          {/* Presets */}
-          <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-border/50">
-            {currentPresets.map((p) => {
-              const active = question === p.question;
-              return (
-                <button
-                  key={p.label}
-                  type="button"
-                  onClick={() => pickPreset(p)}
-                  disabled={running}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                    active
-                      ? "bg-primary/10 border-primary text-primary font-medium"
-                      : "bg-muted/40 border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  {p.label}
-                </button>
-              );
-            })}
-          </div>
-        </Card>
-
-        {/* Side-by-Side Results */}
-        {(loadingKaalkram || kaalkram || errKaalkram || loadingNaive || naive || errNaive) && (
-          <div className="grid items-start gap-6 lg:grid-cols-2">
-            <PanelSlot
-              title="Kaalkram"
-              subtitle="Extracted events → deduplicated → temporal DAG → ordered retrieval"
-              tone="primary"
-              loading={loadingKaalkram}
-              data={kaalkram}
-              err={errKaalkram}
-              gold={goldForPanels}
-              factMatch={factMatch}
-              showDecision={showDecision}
-              checked={checked}
-            />
-            <PanelSlot
-              title="Naive RAG"
-              subtitle="Fixed chunks → embeddings → top-k similarity → stuffed prompt"
-              tone="muted"
-              loading={loadingNaive}
-              data={naive}
-              err={errNaive}
-              gold={goldForPanels}
-              factMatch={factMatch}
-              showDecision={showDecision}
-              checked={checked}
-            />
-          </div>
-        )}
-
-        {/* Check Against The Book (Verdict Drawer) */}
-        {mounted && activePreset && (
-          <div className="flex flex-col items-center space-y-3 pt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setChecked(true);
-                setBookOpen(true);
-              }}
-              disabled={!canCheck}
-              title={
-                !canCheck
-                  ? "Run a comparison with an active preset to check against the ground truth"
-                  : undefined
-              }
-              className="gap-2 border-border shadow-xs"
-            >
-              <BookOpen className="w-4 h-4 text-primary" />
-              Check against the book
-            </Button>
-
-            {checked && (
-              <Card className="w-full p-4 space-y-3 bg-muted/20 border-primary/20">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Ground Truth Verdict
-                    </span>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-                      {activePreset.verdict}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setBookOpen((v) => !v)}
-                    className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
-                  >
-                    {bookOpen ? "Hide facts" : "Show facts"}
-                    <ChevronDown
-                      className={`w-3.5 h-3.5 transition-transform ${
-                        bookOpen ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {bookOpen && (
-                  <ul className="space-y-1.5 text-xs text-muted-foreground list-disc list-inside">
-                    {activePreset.facts.map((f, i) => (
-                      <li key={i} className="leading-relaxed">
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Card>
-            )}
-          </div>
-        )}
-      </div>
+              </ul>
+            </Card>
+          )}
+        </div>
+      )}
     </Shell>
   );
 }
 
+function chipClass(active: boolean) {
+  return [
+    "rounded-full border px-3 py-1 text-xs transition-colors",
+    active
+      ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
+      : "border-[var(--color-line)] text-[var(--color-ink-soft)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]",
+  ].join(" ");
+}
+
 function PanelSlot({
-  title, subtitle, tone, loading, data, err, gold, factMatch, showDecision, checked,
+  title,
+  subtitle,
+  tone,
+  loading,
+  data,
+  err,
+  gold,
+  factMatch,
+  showDecision,
+  checked,
 }: {
   title: string;
   subtitle: string;
@@ -433,9 +432,7 @@ function PanelSlot({
   checked: boolean;
 }) {
   if (loading) {
-    return (
-      <Card className="relative h-72 overflow-hidden shimmer bg-[var(--color-paper)]" />
-    );
+    return <Card className="relative h-72 overflow-hidden shimmer bg-[var(--color-paper)]" />;
   }
   if (err) {
     return (
