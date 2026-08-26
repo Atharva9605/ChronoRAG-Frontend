@@ -18,7 +18,7 @@ type Preset = {
   factMatch?: string;
 };
 
-const PRESETS: Preset[] = [
+const OLD_MAN_PRESETS: Preset[] = [
   {
     label: "Refuse vs sharks",
     question:
@@ -91,10 +91,70 @@ const PRESETS: Preset[] = [
   },
 ];
 
+const RAMAYANA_PRESETS: Preset[] = [
+  {
+    label: "Shravana Kumar vs Exile (Flashback)",
+    question:
+      "Did King Dasharatha accidentally shoot the young hermit boy Shravana Kumar before or after Rama's exile to the Dandaka forest?",
+    gold: "before",
+    verdict: "Before",
+    facts: [
+      "King Dasharatha accidentally shot Shravana Kumar during his youth, recounted as a dying flashback (pp. 443-451).",
+      "Rama's exile to the forest happens decades later during Dasharatha's old age (pp. 345-353).",
+      "Naive RAG fails because the memory is told on page 443; Kaalkram recognizes the true youth timeline.",
+    ],
+  },
+  {
+    label: "Boons vs Golden Deer",
+    question:
+      "Did Kaikeyi demand her two boons from King Dasharatha before or after the golden deer Maricha appeared at Panchavati?",
+    gold: "before",
+    verdict: "Before",
+    facts: [
+      "Kaikeyi demands Rama's exile and Bharata's coronation in Ayodhya (Book II).",
+      "The golden deer Maricha appears years later in the Dandaka forest at Panchavati (Book III).",
+      "Demand for boons happens strictly before the golden deer appearance.",
+    ],
+  },
+  {
+    label: "Surpanakha vs Sita Abducted",
+    question:
+      "Did Lakshmana disfigure the demoness Surpanakha before or after Ravana abducted Sita?",
+    gold: "before",
+    verdict: "Before",
+    facts: [
+      "Lakshmana punishes Surpanakha at Panchavati when she attacks Sita.",
+      "Surpanakha's complaint provokes Ravana to seek revenge and abduct Sita.",
+      "Surpanakha confrontation happens before the abduction.",
+    ],
+  },
+  {
+    label: "Factual · 14 Years Exile",
+    question: "For how many years was Rama commanded to live in exile in the forest?",
+    gold: "fact",
+    verdict: "14 years",
+    factMatch: String.raw`\b14\b|fourteen`,
+    facts: [
+      "Kaikeyi commanded that Rama must reside in the Dandaka forest as a hermit for fourteen years.",
+      "Both pipelines should ground this explicit number.",
+    ],
+  },
+  {
+    label: "Factual · Golden Deer Name",
+    question: "Which demon disguised himself as the golden deer with silver spots to deceive Sita?",
+    gold: "fact",
+    verdict: "Maricha",
+    factMatch: String.raw`\bmaricha\b|mārīca|marich`,
+    facts: [
+      "Maricha took the form of a wondrous golden deer to lure Rama away from the hermitage.",
+    ],
+  },
+];
+
 export default function ComparePage() {
   const [docs, setDocs] = useState<Doc[]>([]);
   const [docId, setDocId] = useState("");
-  const [question, setQuestion] = useState(PRESETS[0].question);
+  const [question, setQuestion] = useState("");
   const [kaalkram, setKaalkram] = useState<PipelineAnswer | null>(null);
   const [naive, setNaive] = useState<PipelineAnswer | null>(null);
   const [loadingKaalkram, setLoadingKaalkram] = useState(false);
@@ -105,9 +165,30 @@ export default function ComparePage() {
   const [bookOpen, setBookOpen] = useState(true);
   const [mounted, setMounted] = useState(false);
 
+  const selectedDoc = useMemo(
+    () => docs.find((d) => d.id === docId) ?? null,
+    [docs, docId]
+  );
+
+  const currentPresets = useMemo(() => {
+    if (!selectedDoc) return OLD_MAN_PRESETS;
+    const name = (selectedDoc.filename || selectedDoc.title || "").toLowerCase();
+    if (name.includes("ramayana") || name.includes("valmiki")) {
+      return RAMAYANA_PRESETS;
+    }
+    return OLD_MAN_PRESETS;
+  }, [selectedDoc]);
+
+  // Set default question when presets change
+  useEffect(() => {
+    if (currentPresets.length > 0) {
+      setQuestion(currentPresets[0].question);
+    }
+  }, [currentPresets]);
+
   const activePreset = useMemo(
-    () => PRESETS.find((p) => p.question === question.trim()) ?? null,
-    [question],
+    () => currentPresets.find((p) => p.question === question.trim()) ?? null,
+    [currentPresets, question],
   );
 
   useEffect(() => {
@@ -138,223 +219,199 @@ export default function ComparePage() {
       ? activePreset.gold === "before" || activePreset.gold === "after"
       : /before\s+or\s+after|which comes first/i.test(question);
 
-  const selectPreset = (q: string) => {
-    setQuestion(q);
-    setChecked(false);
-    setBookOpen(true);
+  async function handleRun(qOverride?: string) {
+    const q = (qOverride ?? question).trim();
+    if (!docId || !q || running) return;
+
     setKaalkram(null);
     setNaive(null);
     setErrKaalkram("");
     setErrNaive("");
-  };
-
-  const run = () => {
-    if (!docId || !question.trim()) return;
-    const q = question.trim();
-    // Keep shimmer up at least 3s so a fast reply doesn't look hardcoded.
-    const withMinDelay = async <T,>(p: Promise<T>, t0: number): Promise<T> => {
-      const value = await p;
-      const left = 3000 - (Date.now() - t0);
-      if (left > 0) await new Promise((r) => setTimeout(r, left));
-      return value;
-    };
-
     setChecked(false);
-    setBookOpen(true);
-    setKaalkram(null);
-    setNaive(null);
-    setErrKaalkram("");
-    setErrNaive("");
     setLoadingKaalkram(true);
     setLoadingNaive(true);
 
-    const tKaal = Date.now();
-    void withMinDelay(api.ask(docId, "kaalkram", q), tKaal)
+    api.queryKaalkram(docId, q)
       .then(setKaalkram)
-      .catch((e: unknown) => setErrKaalkram(e instanceof Error ? e.message : String(e)))
+      .catch((e) => setErrKaalkram(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoadingKaalkram(false));
 
-    const tNaive = Date.now();
-    void withMinDelay(api.ask(docId, "naive", q), tNaive)
+    api.queryNaive(docId, q)
       .then(setNaive)
-      .catch((e: unknown) => setErrNaive(e instanceof Error ? e.message : String(e)))
+      .catch((e) => setErrNaive(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoadingNaive(false));
-  };
+  }
+
+  function pickPreset(p: Preset) {
+    setQuestion(p.question);
+    handleRun(p.question);
+  }
 
   return (
-    <Shell docId={docId || undefined}>
-      <SectionTitle
-        eyebrow="side by side"
-        title="Same book, same question, two architectures"
-        sub="Ask a before/after question. Naive RAG retrieves by similarity (shuffled order). Kaalkram retrieves ordered events."
-      />
+    <Shell active="compare">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div>
+          <SectionTitle
+            eyebrow="Side by Side"
+            title="Same book, same question, two architectures"
+            description="Ask a before/after question. Naive RAG retrieves by similarity (shuffled order). Kaalkram retrieves ordered events."
+          />
+        </div>
 
-      <Card className="mb-6 p-5">
-        <div className="flex flex-col gap-3 md:flex-row" suppressHydrationWarning>
-          <select value={docId} onChange={(e) => setDocId(e.target.value)}
-            suppressHydrationWarning
-            className="rounded-lg border border-[var(--color-line)] bg-white px-3 py-2 text-sm md:w-64">
-            <option value="">Select a book…</option>
-            {docs.map((d) => (
-              <option key={d.id} value={d.id} disabled={!(d.naive_ready && d.kaalkram_ready)}>
-                {d.title}{d.naive_ready && d.kaalkram_ready ? "" : "  (not built)"}
-              </option>
-            ))}
-          </select>
+        {/* Input Bar */}
+        <Card className="p-4 space-y-3">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative sm:w-64">
+              <select
+                aria-label="Select document"
+                value={docId}
+                onChange={(e) => setDocId(e.target.value)}
+                className="w-full h-11 pl-3 pr-8 rounded-lg border border-border bg-background text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary appearance-none cursor-pointer"
+              >
+                {docs.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.title}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 absolute right-2.5 top-3.5 pointer-events-none text-muted-foreground" />
+            </div>
 
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-ink-soft)]" />
-            <input value={question} onChange={(e) => {
-              setQuestion(e.target.value);
-              setChecked(false);
-            }}
-              onKeyDown={(e) => e.key === "Enter" && run()}
-              placeholder="Ask something that depends on order…"
-              suppressHydrationWarning
-              className="w-full rounded-lg border border-[var(--color-line)] bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-[var(--color-accent)]" />
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                placeholder="e.g. Did Santiago refuse the boy before or after the sharks attacked?"
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !running) handleRun();
+                }}
+                className="w-full h-11 pl-10 pr-4 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-muted-foreground" />
+            </div>
+
+            <Button
+              onClick={() => handleRun()}
+              disabled={running || !docId || !question.trim()}
+              className="h-11 px-6 shrink-0"
+            >
+              {running ? (
+                <>
+                  <Spinner className="mr-2" /> Running...
+                </>
+              ) : (
+                "Run comparison"
+              )}
+            </Button>
           </div>
 
-          <Button onClick={run} disabled={running || !docId}>
-            {running ? <><Spinner /> Running…</> : "Run comparison"}
-          </Button>
-        </div>
+          {/* Presets */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-border/50">
+            {currentPresets.map((p) => {
+              const active = question === p.question;
+              return (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => pickPreset(p)}
+                  disabled={running}
+                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                    active
+                      ? "bg-primary/10 border-primary text-primary font-medium"
+                      : "bg-muted/40 border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+        </Card>
 
-        <div className="mt-3 flex min-h-8 flex-wrap gap-2" suppressHydrationWarning>
-          {mounted && PRESETS.map((p) => (
-            <button
-              key={p.question}
-              type="button"
-              onClick={() => selectPreset(p.question)}
-              className={chipClass(question === p.question)}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-      </Card>
-
-      {(loadingKaalkram || kaalkram || errKaalkram || loadingNaive || naive || errNaive) && (
-        <div className="grid items-start gap-6 lg:grid-cols-2">
-          <PanelSlot
-            title="Kaalkram"
-            subtitle="Extracted events → deduplicated → temporal DAG → ordered retrieval"
-            tone="primary"
+        {/* Side-by-Side Results */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <AnswerPanel
+            pipeline="kaalkram"
+            answer={kaalkram}
             loading={loadingKaalkram}
-            data={kaalkram}
-            err={errKaalkram}
+            error={errKaalkram}
+            showDecision={showDecision}
             gold={goldForPanels}
             factMatch={factMatch}
-            showDecision={showDecision}
-            checked={checked}
           />
-          <PanelSlot
-            title="Naive RAG"
-            subtitle="Fixed chunks → embeddings → top-k similarity → stuffed prompt"
-            tone="muted"
+          <AnswerPanel
+            pipeline="naive"
+            answer={naive}
             loading={loadingNaive}
-            data={naive}
-            err={errNaive}
+            error={errNaive}
+            showDecision={showDecision}
             gold={goldForPanels}
             factMatch={factMatch}
-            showDecision={showDecision}
-            checked={checked}
           />
         </div>
-      )}
 
-      {canCheck && !checked && (
-        <div className="mt-6 flex justify-center">
-          <Button variant="ghost" onClick={() => { setChecked(true); setBookOpen(true); }}>
-            <BookOpen className="h-4 w-4" />
-            Check against the book
-          </Button>
-        </div>
-      )}
+        {/* Check Against The Book (Verdict Drawer) */}
+        {mounted && activePreset && (
+          <div className="flex flex-col items-center space-y-3 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setChecked(true);
+                setBookOpen(true);
+              }}
+              disabled={!canCheck}
+              title={
+                !canCheck
+                  ? "Run a comparison with an active preset to check against the ground truth"
+                  : undefined
+              }
+              className="gap-2 border-border shadow-xs"
+            >
+              <BookOpen className="w-4 h-4 text-primary" />
+              Check against the book
+            </Button>
 
-      {checked && activePreset && (
-        <div className="mt-6">
-          <button
-            type="button"
-            onClick={() => setBookOpen((o) => !o)}
-            className="mb-2 flex w-full items-center justify-between rounded-lg border border-[var(--color-line)] bg-white px-4 py-2.5 text-left text-sm text-[var(--color-ink-soft)] hover:bg-[var(--color-paper)]"
-          >
-            <span className="inline-flex items-center gap-2">
-              <BookOpen className="h-4 w-4" />
-              Book answer
-              <span className="text-[var(--color-ink)]">· {activePreset.verdict}</span>
-            </span>
-            <ChevronDown className={`h-4 w-4 transition-transform ${bookOpen ? "rotate-180" : ""}`} />
-          </button>
+            {checked && (
+              <Card className="w-full p-4 space-y-3 bg-muted/20 border-primary/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Ground Truth Verdict
+                    </span>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                      {activePreset.verdict}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setBookOpen((v) => !v)}
+                    className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+                  >
+                    {bookOpen ? "Hide facts" : "Show facts"}
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 transition-transform ${
+                        bookOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+                </div>
 
-          {bookOpen && (
-            <Card className="px-5 py-4">
-              <p className="text-sm text-[var(--color-ink)]">
-                Correct decision: <span className="font-medium">{activePreset.verdict}</span>
-              </p>
-              <ul className="mt-3 space-y-1.5">
-                {activePreset.facts.map((f) => (
-                  <li key={f} className="text-sm leading-relaxed text-[var(--color-ink-soft)]">
-                    · {f}
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
-        </div>
-      )}
+                {bookOpen && (
+                  <ul className="space-y-1.5 text-xs text-muted-foreground list-disc list-inside">
+                    {activePreset.facts.map((f, i) => (
+                      <li key={i} className="leading-relaxed">
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Card>
+            )}
+          </div>
+        )}
+      </div>
     </Shell>
   );
-}
-
-function chipClass(active: boolean) {
-  return [
-    "rounded-full border px-3 py-1 text-xs transition-colors",
-    active
-      ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
-      : "border-[var(--color-line)] text-[var(--color-ink-soft)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]",
-  ].join(" ");
-}
-
-function PanelSlot({
-  title, subtitle, tone, loading, data, err, gold, factMatch, showDecision, checked,
-}: {
-  title: string;
-  subtitle: string;
-  tone: "muted" | "primary";
-  loading: boolean;
-  data: PipelineAnswer | null;
-  err: string;
-  gold: OrderDecision | "fact" | null;
-  factMatch: string | null;
-  showDecision: boolean;
-  checked: boolean;
-}) {
-  if (loading) {
-    return (
-      <Card className="relative h-72 overflow-hidden shimmer bg-[var(--color-paper)]" />
-    );
-  }
-  if (err) {
-    return (
-      <Card className="p-5 text-sm text-[var(--color-accent)]">
-        <h3 className="mb-2 font-display text-lg">{title}</h3>
-        {err}
-      </Card>
-    );
-  }
-  if (data) {
-    return (
-      <AnswerPanel
-        data={data}
-        tone={tone}
-        title={title}
-        subtitle={subtitle}
-        gold={gold}
-        factMatch={factMatch}
-        showDecision={showDecision}
-        checked={checked}
-      />
-    );
-  }
-  return null;
 }
