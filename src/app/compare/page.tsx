@@ -105,6 +105,18 @@ const RAMAYANA_PRESETS: Preset[] = [
     ],
   },
   {
+    label: "Ganga descent vs Shiva bow (Backstory)",
+    question:
+      "Did Sage Vishvamitra narrate the descent of River Ganga before or after Rama broke Lord Shiva's bow in Mithila?",
+    gold: "before",
+    verdict: "Before",
+    facts: [
+      "Vishvamitra narrates the ancient history of King Bhagiratha and River Ganga while journeying to Mithila (Book I).",
+      "Rama breaks Lord Shiva's great bow at King Janaka's court in Mithila later in the journey.",
+      "Ganga backstory narration occurs before breaking the bow.",
+    ],
+  },
+  {
     label: "Boons vs Golden Deer",
     question:
       "Did Kaikeyi demand her two boons from King Dasharatha before or after the golden deer Maricha appeared at Panchavati?",
@@ -117,6 +129,18 @@ const RAMAYANA_PRESETS: Preset[] = [
     ],
   },
   {
+    label: "Guha boat vs Bharata sandals",
+    question:
+      "Did the Nishada king Guha help Rama, Sita, and Lakshmana cross the Ganga before or after Bharata visited Chitrakoota to request Rama's sandals?",
+    gold: "before",
+    verdict: "Before",
+    facts: [
+      "Guha meets Rama and rows the exile party across the Ganga near the beginning of their journey.",
+      "Bharata follows their trail to Mount Chitrakoota later to plead with Rama to return.",
+      "Crossing with Guha comes first; Bharata's arrival at Chitrakoota is after.",
+    ],
+  },
+  {
     label: "Surpanakha vs Sita Abducted",
     question:
       "Did Lakshmana disfigure the demoness Surpanakha before or after Ravana abducted Sita?",
@@ -126,6 +150,42 @@ const RAMAYANA_PRESETS: Preset[] = [
       "Lakshmana punishes Surpanakha at Panchavati when she attacks Sita.",
       "Surpanakha's complaint provokes Ravana to seek revenge and abduct Sita.",
       "Surpanakha confrontation happens before the abduction.",
+    ],
+  },
+  {
+    label: "Khara's Army vs Golden Deer",
+    question:
+      "Did Rama slay Khara and his 14,000 demon warriors before or after Maricha took the form of the golden deer?",
+    gold: "before",
+    verdict: "Before",
+    facts: [
+      "Khara leads his army to attack Rama after Surpanakha is disfigured, and Rama slays them all at Janasthana.",
+      "Enraged by Khara's destruction, Ravana approaches Maricha to plan the golden deer deception.",
+      "Khara's battle happens before the golden deer deception.",
+    ],
+  },
+  {
+    label: "Tataka slain vs Ahalya freed",
+    question:
+      "Did Rama slay the demoness Tataka before or after freeing Ahalya from her curse?",
+    gold: "before",
+    verdict: "Before",
+    facts: [
+      "Rama slays Tataka in the forest on the way to Siddhashrama (Book I).",
+      "Later, upon reaching the hermitage of Sage Gautama near Mithila, Rama releases Ahalya from her curse.",
+      "Tataka's death occurs before Ahalya's redemption.",
+    ],
+  },
+  {
+    label: "Jatayu battle vs Ravana council",
+    question:
+      "Did Jatayu fight Ravana in the sky before or after Ravana held his council in Lanka to display captive Sita?",
+    gold: "before",
+    verdict: "Before",
+    facts: [
+      "The noble vulture Jatayu intercepts Ravana's chariot in mid-air as he flees Panchavati with Sita.",
+      "Ravana reaches Lanka and summons his council after striking down Jatayu.",
+      "Jatayu's sky battle happens before Ravana arrives in Lanka.",
     ],
   },
   {
