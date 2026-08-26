@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BookOpen, ChevronDown, Search } from "lucide-react";
 import Shell from "@/components/Shell";
 import AnswerPanel from "@/components/AnswerPanel";
-import { Button, Card, SectionTitle, Spinner } from "@/components/ui";
+import { Button, Card, SectionTitle } from "@/components/ui";
 import { api } from "@/lib/api";
 import type { OrderDecision } from "@/lib/order";
 import type { Doc, PipelineAnswer } from "@/lib/types";
@@ -296,13 +296,7 @@ export default function ComparePage() {
               disabled={running || !docId || !question.trim()}
               className="h-11 px-6 shrink-0"
             >
-              {running ? (
-                <>
-                  <Spinner className="mr-2" /> Running...
-                </>
-              ) : (
-                "Run comparison"
-              )}
+              {running ? "Running..." : "Run comparison"}
             </Button>
           </div>
 
@@ -330,26 +324,34 @@ export default function ComparePage() {
         </Card>
 
         {/* Side-by-Side Results */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <AnswerPanel
-            pipeline="kaalkram"
-            answer={kaalkram}
-            loading={loadingKaalkram}
-            error={errKaalkram}
-            showDecision={showDecision}
-            gold={goldForPanels}
-            factMatch={factMatch}
-          />
-          <AnswerPanel
-            pipeline="naive"
-            answer={naive}
-            loading={loadingNaive}
-            error={errNaive}
-            showDecision={showDecision}
-            gold={goldForPanels}
-            factMatch={factMatch}
-          />
-        </div>
+        {(loadingKaalkram || kaalkram || errKaalkram || loadingNaive || naive || errNaive) && (
+          <div className="grid items-start gap-6 lg:grid-cols-2">
+            <PanelSlot
+              title="Kaalkram"
+              subtitle="Extracted events → deduplicated → temporal DAG → ordered retrieval"
+              tone="primary"
+              loading={loadingKaalkram}
+              data={kaalkram}
+              err={errKaalkram}
+              gold={goldForPanels}
+              factMatch={factMatch}
+              showDecision={showDecision}
+              checked={checked}
+            />
+            <PanelSlot
+              title="Naive RAG"
+              subtitle="Fixed chunks → embeddings → top-k similarity → stuffed prompt"
+              tone="muted"
+              loading={loadingNaive}
+              data={naive}
+              err={errNaive}
+              gold={goldForPanels}
+              factMatch={factMatch}
+              showDecision={showDecision}
+              checked={checked}
+            />
+          </div>
+        )}
 
         {/* Check Against The Book (Verdict Drawer) */}
         {mounted && activePreset && (
@@ -414,4 +416,48 @@ export default function ComparePage() {
       </div>
     </Shell>
   );
+}
+
+function PanelSlot({
+  title, subtitle, tone, loading, data, err, gold, factMatch, showDecision, checked,
+}: {
+  title: string;
+  subtitle: string;
+  tone: "muted" | "primary";
+  loading: boolean;
+  data: PipelineAnswer | null;
+  err: string;
+  gold: OrderDecision | "fact" | null;
+  factMatch: string | null;
+  showDecision: boolean;
+  checked: boolean;
+}) {
+  if (loading) {
+    return (
+      <Card className="relative h-72 overflow-hidden shimmer bg-[var(--color-paper)]" />
+    );
+  }
+  if (err) {
+    return (
+      <Card className="p-5 text-sm text-[var(--color-accent)]">
+        <h3 className="mb-2 font-display text-lg">{title}</h3>
+        {err}
+      </Card>
+    );
+  }
+  if (data) {
+    return (
+      <AnswerPanel
+        data={data}
+        tone={tone}
+        title={title}
+        subtitle={subtitle}
+        gold={gold}
+        factMatch={factMatch}
+        showDecision={showDecision}
+        checked={checked}
+      />
+    );
+  }
+  return null;
 }
