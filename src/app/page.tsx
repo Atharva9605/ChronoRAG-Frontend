@@ -48,6 +48,18 @@ export default function LibraryPage() {
     refresh();
   };
 
+  const onUploaded = useCallback((newDoc: Doc) => {
+    setDocs((prev) => {
+      if (!prev) return [newDoc];
+      const exists = prev.some((d) => d.id === newDoc.id);
+      if (exists) {
+        return prev.map((d) => (d.id === newDoc.id ? newDoc : d));
+      }
+      return [newDoc, ...prev];
+    });
+    refresh();
+  }, [refresh]);
+
   return (
     <Shell>
       <SectionTitle
@@ -57,7 +69,7 @@ export default function LibraryPage() {
       />
 
       <div className="mb-10">
-        <UploadCard onUploaded={() => refresh()} />
+        <UploadCard onUploaded={onUploaded} />
       </div>
 
       {docs === null ? (
