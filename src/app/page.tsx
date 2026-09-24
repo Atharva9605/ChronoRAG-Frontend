@@ -6,12 +6,14 @@ import Shell from "@/components/Shell";
 import UploadCard from "@/components/UploadCard";
 import JobProgress from "@/components/JobProgress";
 import { Badge, Button, Card, SectionTitle, Spinner } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, type BuildKind } from "@/lib/api";
 import type { Doc, Job } from "@/lib/types";
+
+type DocJobs = { naive?: string; kaalkram?: string; kaalkram_v2?: string };
 
 export default function LibraryPage() {
   const [docs, setDocs] = useState<Doc[] | null>(null);
-  const [jobs, setJobs] = useState<Record<string, { naive?: string; kaalkram?: string }>>({});
+  const [jobs, setJobs] = useState<Record<string, DocJobs>>({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
 
   const refresh = useCallback(() => {
@@ -20,7 +22,7 @@ export default function LibraryPage() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  const startBuild = async (id: string, kind: "naive" | "kaalkram") => {
+  const startBuild = async (id: string, kind: BuildKind) => {
     setBusy((b) => ({ ...b, [`${id}:${kind}`]: true }));
     try {
       const job = await api.build(id, kind);
@@ -34,7 +36,7 @@ export default function LibraryPage() {
     }
   };
 
-  const onJobDone = useCallback((docId: string, kind: "naive" | "kaalkram", job: Job) => {
+  const onJobDone = useCallback((docId: string, kind: BuildKind, job: Job) => {
     setBusy((b) => ({ ...b, [`${docId}:${kind}`]: false }));
     if (job.status === "done") refresh();
   }, [refresh]);
@@ -48,8 +50,8 @@ export default function LibraryPage() {
     <Shell>
       <SectionTitle
         eyebrow="library"
-        title="Your books"
-        sub="Upload a PDF, build both pipelines, then open Compare to see the difference."
+        title="Your documents"
+        sub="Upload a PDF, build naive / Kaalkram v1 / Kaalkram v2, then open Compare."
       />
 
       <div className="mb-10">
@@ -70,7 +72,8 @@ export default function LibraryPage() {
                     <h2 className="font-display text-xl">{d.title}</h2>
                     <Badge tone="neutral">{d.page_count} pages</Badge>
                     {d.naive_ready && <Badge tone="major">naive ready</Badge>}
-                    {d.kaalkram_ready && <Badge tone="accent">kaalkram ready</Badge>}
+                    {d.kaalkram_ready && <Badge tone="accent">v1 ready</Badge>}
+                    {d.v2_ready && <Badge tone="major">v2 ready</Badge>}
                   </div>
                   <p className="mt-1 font-mono text-xs text-[var(--color-ink-soft)]">
                     {d.id} · {d.filename}
@@ -82,56 +85,45 @@ export default function LibraryPage() {
                 </Button>
               </div>
 
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
-                <div className="space-y-3">
-                  <Button
-                    variant="ghost"
-                    disabled={!!busy[`${d.id}:naive`]}
-                    onClick={() => startBuild(d.id, "naive")}
-                  >
-                    {busy[`${d.id}:naive`] ? <Spinner /> : null}
-                    Build naive
-                  </Button>
-                  {jobs[d.id]?.naive && (
-                    <JobProgress
-                      jobId={jobs[d.id].naive!}
-                      onDone={(job) => onJobDone(d.id, "naive", job)}
-                    />
-                  )}
-                </div>
-                <div className="space-y-3">
-                  <Button
-                    disabled={!!busy[`${d.id}:kaalkram`]}
-                    onClick={() => startBuild(d.id, "kaalkram")}
-                  >
-                    {busy[`${d.id}:kaalkram`] ? <Spinner /> : null}
-                    Build Kaalkram
-                  </Button>
-                  {jobs[d.id]?.kaalkram && (
-                    <JobProgress
-                      jobId={jobs[d.id].kaalkram!}
-                      onDone={(job) => onJobDone(d.id, "kaalkram", job)}
-                    />
-                  )}
-                </div>
+              <div className="mt-5 grid gap-4 md:grid-cols-3">
+                {(["naive", "kaalkram", "kaalkram_v2"] as BuildKind[]).map((kind) => (
+                  <div key={kind} className="space-y-3">
+                    <Button
+                      variant={kind === "naive" ? "ghost" : "primary"}
+                      disabled={!!busy[`${d.id}:${kind}`]}
+                      onClick={() => startBuild(d.id, kind)}
+                    >
+                      {busy[`${d.id}:${kind}`] ? <Spinner /> : null}
+                      {kind === "naive" ? "Build naive" : kind === "kaalkram" ? "Build Kaalkram v1" : "Build Kaalkram v2"}
+                    </Button>
+                    {jobs[d.id]?.[kind] && (
+                      <JobProgress
+                        jobId={jobs[d.id][kind]!}
+                        onDone={(job) => onJobDone(d.id, kind, job)}
+                      />
+                    )}
+                  </div>
+                ))}
               </div>
 
-              {d.kaalkram_ready && (
+              {(d.kaalkram_ready || d.naive_ready) && (
                 <div className="mt-4 flex flex-wrap gap-3 text-sm">
-                  <Link className="text-[var(--color-accent)] hover:underline" href={`/timeline/${d.id}`}>
-                    Timeline
-                  </Link>
-                  <Link className="text-[var(--color-accent)] hover:underline" href={`/graph/${d.id}`}>
-                    Graph
-                  </Link>
+                  {d.kaalkram_ready && (
+                    <>
+                      <Link className="text-[var(--color-accent)] hover:underline" href={`/timeline/${d.id}`}>
+                        Timeline
+                      </Link>
+                      <Link className="text-[var(--color-accent)] hover:underline" href={`/graph/${d.id}`}>
+                        Graph
+                      </Link>
+                    </>
+                  )}
                   <Link className="text-[var(--color-accent)] hover:underline" href={`/metrics/${d.id}`}>
                     Metrics
                   </Link>
-                  {d.naive_ready && (
-                    <Link className="text-[var(--color-accent)] hover:underline" href="/compare">
-                      Compare
-                    </Link>
-                  )}
+                  <Link className="text-[var(--color-accent)] hover:underline" href="/compare">
+                    Compare
+                  </Link>
                 </div>
               )}
             </Card>

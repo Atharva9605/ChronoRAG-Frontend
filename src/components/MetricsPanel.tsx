@@ -83,14 +83,9 @@ export default function MetricsPanel({ data }: { data: Metrics }) {
 
       <Card className="p-5 text-sm text-[var(--color-ink-soft)]">
         <p>
-          <span className="font-medium text-[var(--color-ink)]">Ordering accuracy:</span>{" "}
-          pairwise_accuracy = {data.pairwise_accuracy == null ? "not yet labelled" : String(data.pairwise_accuracy)}
-          {" · "}
-          kendall_tau = {data.kendall_tau == null ? "not yet labelled" : String(data.kendall_tau)}
-        </p>
-        <p className="mt-2">
-          Duplicate rate and page traceability are computed from the system itself.
-          Pairwise / Kendall metrics need a hand-labelled gold ordering.
+          Structural stats from extraction. Ordering accuracy, recall@k, and consistency
+          are shown above from <span className="font-mono">eval-runs</span> summaries
+          (never typed by hand).
         </p>
       </Card>
     </div>

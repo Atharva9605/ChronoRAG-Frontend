@@ -1,6 +1,11 @@
-import type { CompareResult, Doc, EventRow, GraphData, Job, PipelineAnswer } from "./types";
+import type {
+  Doc, EvalRun, EventRow, GoldSet, GraphData, Job, PipelineAnswer, V2GraphData,
+} from "./types";
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
+
+export type AskKind = "naive" | "kaalkram" | "kaalkram_v2";
+export type BuildKind = "naive" | "kaalkram" | "kaalkram_v2";
 
 async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
@@ -25,7 +30,7 @@ export const api = {
   deleteDoc: (id: string) =>
     jsonFetch<{ deleted: string }>(`/api/documents/${id}`, { method: "DELETE" }),
 
-  build: (id: string, kind: "naive" | "kaalkram") =>
+  build: (id: string, kind: BuildKind) =>
     jsonFetch<Job>(`/api/documents/${id}/build/${kind}`, { method: "POST" }),
 
   job: (jobId: string) => jsonFetch<Job>(`/api/jobs/${jobId}`),
@@ -33,17 +38,16 @@ export const api = {
   docJobs: (id: string) =>
     jsonFetch<Record<string, Job | null>>(`/api/documents/${id}/jobs`),
 
-  compare: (id: string, question: string) =>
-    jsonFetch<CompareResult>(`/api/documents/${id}/compare`, {
-      method: "POST", body: JSON.stringify({ question }),
-    }),
-
-  ask: (id: string, kind: "naive" | "kaalkram", question: string) =>
+  ask: (id: string, kind: AskKind, question: string) =>
     jsonFetch<PipelineAnswer>(`/api/documents/${id}/ask/${kind}`, {
       method: "POST", body: JSON.stringify({ question }),
     }),
 
+  gold: (id: string) => jsonFetch<GoldSet>(`/api/documents/${id}/gold`),
+
   events: (id: string) => jsonFetch<EventRow[]>(`/api/documents/${id}/events`),
   graph: (id: string) => jsonFetch<GraphData>(`/api/documents/${id}/graph`),
+  v2Graph: (id: string) => jsonFetch<V2GraphData>(`/api/documents/${id}/v2/graph`),
   metrics: (id: string) => jsonFetch<Record<string, unknown>>(`/api/documents/${id}/metrics`),
+  evalRuns: (id: string) => jsonFetch<EvalRun[]>(`/api/documents/${id}/eval-runs`),
 };
